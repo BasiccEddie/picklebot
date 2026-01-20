@@ -1,0 +1,265 @@
+const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
+
+const config = require('../config');
+const { isStaff } = require('../utils/permissions');
+
+const User = require('../models/User');
+const { xpNeeded, getNextLevelXp } = require('../utils/xpCalc');
+const { generateRankCard } = require('../utils/rankCard');
+
+const InviteStats = require('../models/InviteStats');
+
+module.exports = (client) => {
+  client.on('interactionCreate', async (interaction) => {
+    try {
+      if (!interaction.isChatInputCommand()) return;
+
+      /* =====================
+         /warn (first warning)
+      ====================== */
+      if (interaction.commandName === 'warn') {
+        if (!isStaff(interaction.member)) {
+          return interaction.reply({
+            content: '🚫 You do not have permission to use this command.',
+            ephemeral: true
+          });
+        }
+
+        const user = interaction.options.getUser('user');
+        const reason = interaction.options.getString('reason');
+        const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+
+        const sourRole = interaction.guild.roles.cache.get(config.roles.SOUR_PICKLE);
+        if (sourRole && member) {
+          await member.roles.add(sourRole).catch(() => null);
+        }
+
+        const generalChannel = interaction.guild.channels.cache.get(config.channels.GENERAL);
+        if (generalChannel) {
+          await generalChannel
+            .send(`⚠️ ${user} You have been warned because of **${reason}**, and you have received the **Sour Pickle** role!`)
+            .catch(() => null);
+        }
+
+        const logEmbed = new EmbedBuilder()
+          .setTitle('⚠️ Warning Issued')
+          .setColor(0xffcc00)
+          .addFields(
+            { name: 'User', value: `${user.tag} (${user.id})` },
+            { name: 'Reason', value: reason },
+            { name: 'Staff', value: `${interaction.user.tag} (${interaction.user.id})` },
+            { name: 'Role Given', value: 'Sour Pickle' }
+          )
+          .setTimestamp();
+
+        const modLogs = interaction.guild.channels.cache.get(config.channels.MOD_LOGS);
+        if (modLogs) {
+          await modLogs.send({ embeds: [logEmbed] }).catch(() => null);
+        }
+
+        return interaction.reply({
+          content: `✅ Warning issued to ${user.tag}`,
+          ephemeral: true
+        });
+      }
+
+      /* =====================
+         /warn2 (final warning)
+      ====================== */
+      if (interaction.commandName === 'warn2') {
+        if (!isStaff(interaction.member)) {
+          return interaction.reply({
+            content: '🚫 You do not have permission to use this command.',
+            ephemeral: true
+          });
+        }
+
+        const user = interaction.options.getUser('user');
+        const reason = interaction.options.getString('reason');
+        const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+
+        const rottenRole = interaction.guild.roles.cache.get(config.roles.ROTTEN_PICKLE);
+        if (rottenRole && member) {
+          await member.roles.add(rottenRole).catch(() => null);
+        }
+
+        const generalChannel = interaction.guild.channels.cache.get(config.channels.GENERAL);
+        if (generalChannel) {
+          await generalChannel
+            .send(
+              `🚨 ${user} You have received your **FINAL WARNING** because of **${reason}**.\n` +
+              `You have now been given the **Rotten Pickle** role.\n` +
+              `**Next violation will result in a mute or tempban.**`
+            )
+            .catch(() => null);
+        }
+
+        const logEmbed = new EmbedBuilder()
+          .setTitle('🚨 Final Warning Issued')
+          .setColor(0xff0000)
+          .addFields(
+            { name: 'User', value: `${user.tag} (${user.id})` },
+            { name: 'Reason', value: reason },
+            { name: 'Staff', value: `${interaction.user.tag} (${interaction.user.id})` },
+            { name: 'Role Given', value: 'Rotten Pickle' }
+          )
+          .setTimestamp();
+
+        const modLogs = interaction.guild.channels.cache.get(config.channels.MOD_LOGS);
+        if (modLogs) {
+          await modLogs.send({ embeds: [logEmbed] }).catch(() => null);
+        }
+
+        return interaction.reply({
+          content: `✅ Final warning issued to ${user.tag}`,
+          ephemeral: true
+        });
+      }
+
+      /* =====================
+         /rank (rank card image)
+         Uses XP into-level progress based on your XP table
+      ====================== */
+      if (interaction.commandName === 'rank') {
+        await interaction.deferReply();
+
+        const targetUser = interaction.options.getUser('user') || interaction.user;
+
+        let userData = await User.findOne({
+          userId: targetUser.id,
+          guildId: interaction.guild.id
+        });
+
+        if (!userData) {
+          userData = new User({
+            userId: targetUser.id,
+            guildId: interaction.guild.id,
+            xp: 0,
+            level: 0
+          });
+          await userData.save();
+        }
+
+        const currentLevel = userData.level || 0;
+        const totalXp = userData.xp || 0;
+
+        const currentLevelTotalXp = currentLevel > 0 ? (xpNeeded(currentLevel) ?? 0) : 0;
+        const nextLevelTotalXp = getNextLevelXp(currentLevel); // null if maxed / not defined
+
+        const xpIntoLevel = Math.max(0, totalXp - currentLevelTotalXp);
+        const xpThisLevelNeeded = nextLevelTotalXp
+          ? Math.max(1, nextLevelTotalXp - currentLevelTotalXp)
+          : 1;
+
+        // If maxed (no next level), show a full bar
+        const xpForCard = nextLevelTotalXp ? xpIntoLevel : xpThisLevelNeeded;
+
+        const avatarURL = targetUser.displayAvatarURL({ extension: 'png', size: 256 });
+
+        const buffer = await generateRankCard({
+          username: targetUser.username,
+          discriminator: targetUser.discriminator,
+          avatarURL,
+          level: currentLevel,
+          xp: xpForCard,
+          xpNext: xpThisLevelNeeded
+        });
+
+        const attachment = new AttachmentBuilder(buffer, { name: 'rank.png' });
+        return interaction.editReply({ files: [attachment] });
+      }
+
+      /* =====================
+         /leaderboard (top XP)
+      ====================== */
+      if (interaction.commandName === 'leaderboard') {
+        await interaction.deferReply();
+
+        const top = await User.find({ guildId: interaction.guild.id })
+          .sort({ xp: -1 })
+          .limit(10);
+
+        if (!top.length) {
+          return interaction.editReply('No leaderboard data yet. Start chatting to earn XP! 🥒');
+        }
+
+        const lines = top.map((u, i) =>
+          `**${i + 1}.** <@${u.userId}> — Level **${u.level || 0}** | XP **${u.xp || 0}**`
+        );
+
+        const embed = new EmbedBuilder()
+          .setTitle('🏆 Pickle Leaderboard')
+          .setColor(0x2ecc71)
+          .setDescription(lines.join('\n'))
+          .setTimestamp();
+
+        return interaction.editReply({ embeds: [embed] });
+      }
+
+      /* =====================
+         /inviteleaderboard (top inviters)
+      ====================== */
+      if (interaction.commandName === 'inviteleaderboard') {
+        await interaction.deferReply();
+
+        const top = await InviteStats.find({ guildId: interaction.guild.id })
+          .sort({ invites: -1 })
+          .limit(10);
+
+        if (!top.length) {
+          return interaction.editReply('No invite stats yet. 🥒');
+        }
+
+        const lines = top.map((row, i) =>
+          `**${i + 1}.** <@${row.inviterId}> — **${row.invites}** invites`
+        );
+
+        const embed = new EmbedBuilder()
+          .setTitle('🏆 Invite Leaderboard')
+          .setColor(0x2ecc71)
+          .setDescription(lines.join('\n'))
+          .setTimestamp();
+
+        return interaction.editReply({ embeds: [embed] });
+      }
+
+      /* =====================
+         /invites (check invites)
+      ====================== */
+      if (interaction.commandName === 'invites') {
+        await interaction.deferReply({ ephemeral: true });
+
+        const targetUser = interaction.options.getUser('user') || interaction.user;
+
+        const stats = await InviteStats.findOne({
+          guildId: interaction.guild.id,
+          inviterId: targetUser.id
+        });
+
+        const count = stats?.invites ?? 0;
+
+        const embed = new EmbedBuilder()
+          .setTitle('📨 Invite Stats')
+          .setColor(0x2ecc71)
+          .setDescription(`${targetUser} has **${count}** total invited joins.`)
+          .setTimestamp();
+
+        return interaction.editReply({ embeds: [embed] });
+      }
+
+    } catch (err) {
+      console.error('❌ interactionCreate error:', err);
+
+      // Try to respond so Discord doesn't show "did not respond"
+      if (interaction && (interaction.deferred || interaction.replied)) {
+        try {
+          await interaction.editReply('❌ Something went wrong. Check the bot console for details.');
+        } catch (_) {}
+      } else if (interaction && interaction.isRepliable && interaction.isRepliable()) {
+        try {
+          await interaction.reply({ content: '❌ Something went wrong. Check the bot console.', ephemeral: true });
+        } catch (_) {}
+      }
+    }
+  });
+};
