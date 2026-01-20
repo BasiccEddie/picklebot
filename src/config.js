@@ -30,5 +30,10 @@ levelRoles: [
   { level: 60, roleId: "1462594848140951656" },
   { level: 70, roleId: "1462594969918242918" }
 ]
+inviteRoles: [
+  { level: 10, roleID: "1462595963574026417" },
+  { level: 30, roleID: "1462596094944083999" },
+  { level: 50, roleID: "1462596225818951872" },
+]
 
 
