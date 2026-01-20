@@ -4,7 +4,7 @@ const { getLevel } = require('../utils/xpCalc');
 const { applyLevelRoles } = require('../utils/levelRoles');
 const { sendHallOfFame } = require('../utils/hallOfFame');
 
-const XP_PER_CHUNK = 1;
+const XP_PER_CHUNK = 10;
 const CHUNK_MS = 10 * 60 * 1000; // 10 minutes
 
 // Memory-only sessions: key = guildId:userId -> start timestamp (when eligible)

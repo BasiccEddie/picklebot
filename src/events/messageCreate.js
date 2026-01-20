@@ -4,7 +4,7 @@ const { getLevel } = require('../utils/xpCalc');
 const { applyLevelRoles } = require('../utils/levelRoles');
 const { sendHallOfFame } = require('../utils/hallOfFame');
 
-const XP_PER_MESSAGE = 1;
+const XP_PER_MESSAGE = 5;
 const MESSAGE_COOLDOWN_MS = 10_000; // 10 seconds anti-spam
 
 // Optional: public "level up" messages (off by default)
