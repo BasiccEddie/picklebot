@@ -1,5 +1,7 @@
 const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const path = require('path');
+GlobalFonts.registerFromPath(path.join(__dirname, '../assets/fonts/Inter-Regular.ttf'), 'Inter');
+GlobalFonts.registerFromPath(path.join(__dirname, '../assets/fonts/Inter-Bold.ttf'), 'InterBold');
 
 function roundRect(ctx, x, y, w, h, r) {
   const radius = Math.min(r, w / 2, h / 2);
@@ -121,7 +123,7 @@ async function generateRankCard({ username, discriminator, avatarURL, level, xp,
 
   // ===== Username (fits header width) =====
   ctx.fillStyle = textMain;
-  ctx.font = 'bold 38px sans-serif';
+  ctx.font = '20px Inter';
 
   let displayName = username;
   while (ctx.measureText(displayName).width > (headerW - 24) && displayName.length > 3) {
@@ -134,18 +136,18 @@ async function generateRankCard({ username, discriminator, avatarURL, level, xp,
   // Discriminator (optional)
   if (discriminator && discriminator !== '0') {
     ctx.fillStyle = textSub;
-    ctx.font = '18px sans-serif';
+    ctx.font = '20px Inter';
     ctx.fillText(`#${discriminator}`, headerX + 18, headerY + 70);
   }
 
   // ===== Stats block =====
   const statsY = 155;
   ctx.fillStyle = textMain;
-  ctx.font = 'bold 26px sans-serif';
+  ctx.font = '20px Inter';
   ctx.fillText(`Level: ${level}`, textX, statsY);
 
   ctx.fillStyle = textSub;
-  ctx.font = '20px sans-serif';
+  ctx.font = '20px Inter';
   ctx.fillText(`XP: ${xp} / ${xpNext}`, textX, statsY + 32);
 
   // ===== Progress bar (wide, aligned with text area) =====
