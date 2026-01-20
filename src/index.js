@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const mongoose = require('mongoose');
 const { Client, GatewayIntentBits } = require('discord.js');
+const { checkPunishments } = require('./utils/punishments');
 
 // --- Discord Client (must be created BEFORE requiring events) ---
 const client = new Client({
@@ -25,6 +26,9 @@ require('./events/inviteTracker')(client);
 client.once('ready', () => {
   console.log(`🥒 Bot Pickle is online as ${client.user.tag}`);
 });
+setInterval(() => {
+  checkPunishments(client).catch(() => null);
+}, 60_000); // every 60s
 
 // --- MongoDB Connect ---
 mongoose.connect(process.env.MONGO_URI)

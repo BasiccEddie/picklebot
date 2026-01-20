@@ -55,6 +55,45 @@ const commands = [
       .setDescription('User to check (optional)')
       .setRequired(false)
   ),
+  new SlashCommandBuilder()
+  .setName('mute')
+  .setDescription('Mute a member for a number of hours')
+  .addUserOption(option =>
+    option.setName('user')
+      .setDescription('Member to mute')
+      .setRequired(true)
+  )
+  .addIntegerOption(option =>
+    option.setName('hours')
+      .setDescription('Mute duration (hours)')
+      .setRequired(true)
+      .setMinValue(1)
+  )
+  .addStringOption(option =>
+    option.setName('reason')
+      .setDescription('Reason for mute')
+      .setRequired(true)
+  ),
+
+new SlashCommandBuilder()
+  .setName('tempban')
+  .setDescription('Tempban a member for a number of days')
+  .addUserOption(option =>
+    option.setName('user')
+      .setDescription('Member to tempban')
+      .setRequired(true)
+  )
+  .addIntegerOption(option =>
+    option.setName('days')
+      .setDescription('Tempban duration (days)')
+      .setRequired(true)
+      .setMinValue(1)
+  )
+  .addStringOption(option =>
+    option.setName('reason')
+      .setDescription('Reason for tempban')
+      .setRequired(true)
+  ),
 ].map(cmd => cmd.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);

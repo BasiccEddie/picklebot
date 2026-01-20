@@ -2,7 +2,7 @@ const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
 
 const config = require('../config');
 const { isStaff } = require('../utils/permissions');
-
+const Punishment = require('../models/Punishment');
 const User = require('../models/User');
 const { xpNeeded, getNextLevelXp } = require('../utils/xpCalc');
 const { generateRankCard } = require('../utils/rankCard');
@@ -249,6 +249,127 @@ module.exports = (client) => {
 
     } catch (err) {
       console.error('❌ interactionCreate error:', err);
+      if (interaction.commandName === 'mute') {
+  if (!isStaff(interaction.member)) {
+    return interaction.reply({ content: '🚫 You do not have permission to use this command.', ephemeral: true });
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  const user = interaction.options.getUser('user');
+  const hours = interaction.options.getInteger('hours');
+  const reason = interaction.options.getString('reason');
+
+  const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+  if (!member) return interaction.editReply('❌ Could not find that member in this server.');
+
+  const mutedRoleId = '1462597488900050974';
+
+  await member.roles.add(mutedRoleId).catch(() => null);
+
+  const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
+
+  await Punishment.findOneAndUpdate(
+    { guildId: interaction.guild.id, userId: user.id, type: 'MUTE' },
+    {
+      guildId: interaction.guild.id,
+      userId: user.id,
+      type: 'MUTE',
+      roleId: mutedRoleId,
+      reason,
+      staffId: interaction.user.id,
+      expiresAt
+    },
+    { upsert: true, new: true }
+  );
+
+  const general = interaction.guild.channels.cache.get(config.channels.GENERAL);
+  if (general) {
+    await general.send({
+      content: `🔇 **Mute**\n${user.tag} has been muted by the **Pickle Gods** for **${hours} hour(s)**.\nReason: **${reason}**`,
+      allowedMentions: { parse: [] }
+    }).catch(() => null);
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle('🔇 Member Muted')
+    .setColor(0xffaa00)
+    .addFields(
+      { name: 'User', value: `${user.tag} (${user.id})` },
+      { name: 'Duration', value: `${hours} hour(s)`, inline: true },
+      { name: 'Reason', value: reason, inline: false },
+      { name: 'Staff', value: `${interaction.user.tag} (${interaction.user.id})` },
+      { name: 'Role', value: 'Muted Pickle', inline: true },
+      { name: 'Expires', value: `<t:${Math.floor(expiresAt.getTime() / 1000)}:F>`, inline: false }
+    )
+    .setTimestamp();
+
+  const modLogs = interaction.guild.channels.cache.get(config.channels.MOD_LOGS);
+  if (modLogs) await modLogs.send({ embeds: [embed] }).catch(() => null);
+
+  return interaction.editReply(`✅ Muted ${user.tag} for ${hours} hour(s).`);
+}
+if (interaction.commandName === 'tempban') {
+  if (!isStaff(interaction.member)) {
+    return interaction.reply({ content: '🚫 You do not have permission to use this command.', ephemeral: true });
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  const user = interaction.options.getUser('user');
+  const days = interaction.options.getInteger('days');
+  const reason = interaction.options.getString('reason');
+
+  const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+  if (!member) return interaction.editReply('❌ Could not find that member in this server.');
+
+  const frozenRoleId = '1462597563935887410';
+
+  await member.roles.add(frozenRoleId).catch(() => null);
+
+  const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+  await Punishment.findOneAndUpdate(
+    { guildId: interaction.guild.id, userId: user.id, type: 'TEMPBAN' },
+    {
+      guildId: interaction.guild.id,
+      userId: user.id,
+      type: 'TEMPBAN',
+      roleId: frozenRoleId,
+      reason,
+      staffId: interaction.user.id,
+      expiresAt
+    },
+    { upsert: true, new: true }
+  );
+
+  const general = interaction.guild.channels.cache.get(config.channels.GENERAL);
+  if (general) {
+    await general.send({
+      content: `🧊 **Tempban**\n${user.tag} has been tempbanned in **Pickle Jar Gaming** by the **Pickle Council** for **${days} day(s)**.\nReason: **${reason}**`,
+      allowedMentions: { parse: [] }
+    }).catch(() => null);
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle('🧊 Member Tempbanned')
+    .setColor(0x00aaff)
+    .addFields(
+      { name: 'User', value: `${user.tag} (${user.id})` },
+      { name: 'Duration', value: `${days} day(s)`, inline: true },
+      { name: 'Reason', value: reason, inline: false },
+      { name: 'Staff', value: `${interaction.user.tag} (${interaction.user.id})` },
+      { name: 'Role', value: 'Frozen Pickle', inline: true },
+      { name: 'Expires', value: `<t:${Math.floor(expiresAt.getTime() / 1000)}:F>`, inline: false }
+    )
+    .setTimestamp();
+
+  const modLogs = interaction.guild.channels.cache.get(config.channels.MOD_LOGS);
+  if (modLogs) await modLogs.send({ embeds: [embed] }).catch(() => null);
+
+  return interaction.editReply(`✅ Tempbanned ${user.tag} for ${days} day(s).`);
+}
+
 
       // Try to respond so Discord doesn't show "did not respond"
       if (interaction && (interaction.deferred || interaction.replied)) {
