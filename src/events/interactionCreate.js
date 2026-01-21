@@ -6,7 +6,6 @@ const Punishment = require('../models/Punishment');
 const User = require('../models/User');
 const { xpNeeded, getNextLevelXp } = require('../utils/xpCalc');
 const { generateRankCard } = require('../utils/rankCard');
-
 const InviteStats = require('../models/InviteStats');
 
 module.exports = (client) => {
@@ -381,6 +380,42 @@ if (interaction.commandName === 'tempban') {
           await interaction.reply({ content: '❌ Something went wrong. Check the bot console.', ephemeral: true });
         } catch (_) {}
       }
+      if (interaction.commandName === 'invitesync') {
+  if (!isStaff(interaction.member)) {
+    return interaction.reply({ content: '🚫 You do not have permission to use this command.', ephemeral: true });
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  // Requires "Manage Server" permission for the bot
+  const invites = await interaction.guild.invites.fetch().catch(() => null);
+  if (!invites) {
+    return interaction.editReply('❌ Could not fetch invites. Make sure the bot has **Manage Server** permission.');
+  }
+
+  // Sum uses per inviterId
+  const totals = new Map(); // inviterId -> totalUses
+  for (const inv of invites.values()) {
+    const inviterId = inv.inviter?.id;
+    if (!inviterId) continue;
+
+    const uses = inv.uses ?? 0;
+    totals.set(inviterId, (totals.get(inviterId) || 0) + uses);
+  }
+
+  // Save to DB
+  let updated = 0;
+  for (const [inviterId, totalUses] of totals.entries()) {
+    await InviteStats.findOneAndUpdate(
+      { guildId: interaction.guild.id, inviterId },
+      { $set: { invites: totalUses } },
+      { upsert: true, new: true }
+    );
+    updated++;
+  }
+
+  return interaction.editReply(`✅ Synced invites for **${updated}** inviters from current Discord invite uses.`);
+}
     }
   });
 };

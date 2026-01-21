@@ -94,6 +94,9 @@ new SlashCommandBuilder()
       .setDescription('Reason for tempban')
       .setRequired(true)
   ),
+  new SlashCommandBuilder()
+  .setName('invitesync')
+  .setDescription('Sync invite leaderboard from current Discord invite uses (staff only)'),
 ].map(cmd => cmd.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
